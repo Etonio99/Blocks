@@ -8,6 +8,11 @@ class Block:
         self.x_position = x_position
         self.y_position = y_position
 
+class BG_Block(Block):
+    def __init__(self, x_position, y_position, rect):
+        super().__init__(x_position, y_position)
+        self.rect = rect
+
 class Block_Formation:
     def __init__(self, x_current_tile, y_current_tile, formation):
         self.x_current_tile = x_current_tile
@@ -123,7 +128,7 @@ for y in range(BOARD_WIDTH):
     placed_blocks.append([])
     for x in range(BOARD_WIDTH):
         placed_blocks[y].append(False)
-        BG_BLOCKS.append(pygame.rect.Rect(GAME_VIEW_X + BLOCK_WIDTH * x + BLOCK_PADDING * (x + 1), GAME_VIEW_Y + BLOCK_WIDTH * y + BLOCK_PADDING * (y + 1), BLOCK_WIDTH, BLOCK_WIDTH))
+        BG_BLOCKS.append(BG_Block(x, y, pygame.rect.Rect(GAME_VIEW_X + BLOCK_WIDTH * x + BLOCK_PADDING * (x + 1), GAME_VIEW_Y + BLOCK_WIDTH * y + BLOCK_PADDING * (y + 1), BLOCK_WIDTH, BLOCK_WIDTH)))
 
 def draw_all():
     SURFACE.fill(BLACK)
@@ -137,13 +142,21 @@ def draw_all():
         color_1 = BG_BLOCK_BRIGHT
         color_2 = BG_BLOCK_DARK
         
+        PLACED_COLOR = 100, 50, 20
+        
         if line_counter >= 3 and line_counter < 6:
             color_1, color_2 = color_2, color_1
 
         if iterator < 3 or iterator >= 6:
-            pygame.draw.rect(SURFACE, color_1, BLOCK)
+            if placed_blocks[BLOCK.x_position][BLOCK.y_position]:
+                pygame.draw.rect(SURFACE, PLACED_COLOR, BLOCK.rect)
+            else:
+                pygame.draw.rect(SURFACE, color_1, BLOCK.rect)
         else:
-            pygame.draw.rect(SURFACE, color_2, BLOCK)
+            if placed_blocks[BLOCK.x_position][BLOCK.y_position]:
+                pygame.draw.rect(SURFACE, PLACED_COLOR, BLOCK.rect)
+            else:
+                pygame.draw.rect(SURFACE, color_2, BLOCK.rect)
         
         iterator += 1
         if iterator >= 9:
@@ -160,12 +173,18 @@ def main():
     global game_running
     game_running = True
 
+    global active_block_formation
+
     while game_running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 game_running = False
             elif event.type == pygame.JOYBUTTONDOWN:
-                if event.button == 6:
+                if event.button == 0:
+                    for block in active_block_formation.blocks:
+                        placed_blocks[block.x_position + active_block_formation.x_current_tile][block.y_position + active_block_formation.y_current_tile] = True
+                    active_block_formation = Block_Formation(0, 0, BLOCK_SHAPES[random.randint(0, len(BLOCK_SHAPES) - 1)])
+                elif event.button == 6:
                     game_running = False
                 print(f"Button {event.button} pressed")
             # elif event.type == pygame.JOYBUTTONUP:
