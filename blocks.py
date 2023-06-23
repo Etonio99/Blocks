@@ -355,9 +355,10 @@ def draw_all():
 
 wait_for_joystick_release = False
 
+game_running = True
+
 def main():
     global game_running
-    game_running = True
 
     global active_block_formation
     active_block_formation.move(0, 0)
