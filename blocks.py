@@ -30,10 +30,9 @@ class Block_Formation:
         for line in self.formation:
             for i in range(self.width):
                 if line[i] == "X":
-                    self.blocks.append(Block(i, line_counter))
-            
+                    self.blocks.append(Block(i, line_counter))    
             line_counter += 1
-    
+            
     def move(self, x_tiles, y_tiles):
         if self.x_current_tile + x_tiles < 0 or self.x_current_tile + x_tiles + self.width - 1 >= BOARD_WIDTH:
             return
@@ -43,20 +42,34 @@ class Block_Formation:
         self.x_current_tile += x_tiles
         self.y_current_tile += y_tiles
 
-        self.can_place = True
-    
+        self.can_place = False
+        
+        block_in_way = False
+        for BLOCK in self.blocks:
+            if placed_blocks[BLOCK.x_position + self.x_current_tile][BLOCK.y_position + self.y_current_tile]:
+                block_in_way = True
+        if not block_in_way:
+            self.can_place = True  
+        
     def draw(self):
         for BLOCK in self.blocks:
             block_color = WHITE
             if placed_blocks[BLOCK.x_position + self.x_current_tile][BLOCK.y_position + self.y_current_tile]:
                 block_color = RED
-                self.can_place = False
             X_POSITION = GAME_VIEW_X + BLOCK_WIDTH * (BLOCK.x_position + self.x_current_tile) + BLOCK_PADDING * (BLOCK.x_position + self.x_current_tile + 1)
             Y_POSITION = GAME_VIEW_Y + BLOCK_WIDTH * (BLOCK.y_position + self.y_current_tile) + BLOCK_PADDING * (BLOCK.y_position + self.y_current_tile + 1)
             pygame.draw.rect(SURFACE, block_color, (X_POSITION, Y_POSITION, BLOCK_WIDTH, BLOCK_WIDTH))
+        
 
 BLOCK_SHAPES = [
     [
+        "X"
+    ],
+    [
+        "XX"
+    ],
+    [
+        "X",
         "X"
     ],
     [
@@ -134,7 +147,7 @@ BLOCK_SHAPES = [
 
 CLOCK = pygame.time.Clock()
 FRAME_RATE = 30
-SCREEN_WIDTH, SCREEN_HEIGHT = (900, 600)
+SCREEN_WIDTH, SCREEN_HEIGHT = (1920, 1080)
 SURFACE = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
 RED = 255, 0, 0
@@ -164,18 +177,37 @@ BG_BLOCK_DARK = 130, 80, 50
 BG_BLOCKS = []
 
 active_block_formation = Block_Formation(0, 0, BLOCK_SHAPES[random.randint(0, len(BLOCK_SHAPES) - 1)])
+available_block_formations = []
+current_block_formation = 0
 
 placed_blocks = []
+possible_placed_blocks = []
 
 for y in range(BOARD_WIDTH):
     placed_blocks.append([])
+    possible_placed_blocks.append([])
     for x in range(BOARD_WIDTH):
         placed_blocks[y].append(False)
+        possible_placed_blocks[y].append(False)
         BG_BLOCKS.append(BG_Block(x, y, pygame.rect.Rect(GAME_VIEW_X + BLOCK_WIDTH * x + BLOCK_PADDING * (x + 1), GAME_VIEW_Y + BLOCK_WIDTH * y + BLOCK_PADDING * (y + 1), BLOCK_WIDTH, BLOCK_WIDTH)))
 
 columns = []
 rows = []
 squares = []
+
+possible_columns = []
+possible_rows = []
+possible_squares = []
+
+score = 0
+
+def update_possible_placed_blocks():
+    for y in range(BOARD_WIDTH):
+        for x in range(BOARD_WIDTH):
+            possible_placed_blocks[x][y] = False
+            
+    for block in active_block_formation.blocks:
+        possible_placed_blocks[block.x_position + active_block_formation.x_current_tile][block.y_position + active_block_formation.y_current_tile] = True
 
 def check_for_groups():
     global columns
@@ -198,7 +230,7 @@ def check_for_groups():
         if row:
             rows.append(x)
 
-    for y in range(3):
+    for y in range(3): # Check for squares
         for x in range(3):
             square = True
             for x_inner in range(3):
@@ -207,7 +239,41 @@ def check_for_groups():
                         square = False
             if square:
                 squares.append(x + y * 3)
+                
+def check_for_possible_groups():
+    global possible_columns
+    possible_columns = []
+    global possible_rows
+    possible_rows = []
+    global possible_squares
+    possible_squares = []
 
+    for y in range(len(possible_placed_blocks)): # Check for possible columns
+        column = True
+        for x in range(len(possible_placed_blocks)):
+            if not possible_placed_blocks[y][x] and not placed_blocks[y][x]:
+                column = False
+        if column:
+            possible_columns.append(y)
+
+    for x in range(len(possible_placed_blocks)): # Check for possible rows
+        row = True
+        for y in range(len(possible_placed_blocks)):
+            if not possible_placed_blocks[y][x] and not placed_blocks[y][x]:
+                row = False
+        if row:
+            possible_rows.append(x)
+
+    for y in range(3): # Check for possible squares
+        for x in range(3):
+            square = True
+            for x_inner in range(3):
+                for y_inner in range(3):
+                    if not possible_placed_blocks[x * 3 + x_inner][y * 3 + y_inner] and not placed_blocks[x * 3 + x_inner][y * 3 + y_inner]:
+                        square = False
+            if square:
+                possible_squares.append(x + y * 3)
+    
 def clear_groups():
     global columns
     global rows
@@ -228,6 +294,12 @@ def clear_groups():
                 for y_inner in range(3):
                     placed_blocks[x * 3 + x_inner][y * 3 + y_inner] = False
 
+    number_of_matches = len(columns) + len(rows) + len(squares)
+
+    global score
+    score += number_of_matches * 10 * number_of_matches
+    print(score)
+
     columns = []
     rows = []
     squares = []
@@ -244,23 +316,31 @@ def draw_all():
         color_1 = BG_BLOCK_BRIGHT
         color_2 = BG_BLOCK_DARK
         
-        PLACED_COLOR = 100, 50, 20
+        placed_color_1 = 100, 50, 20
+        placed_color_2 = 80, 30, 0
+        
         GROUP_COLOR = 0, 170, 150
         
         if line_counter >= 3 and line_counter < 6:
             color_1, color_2 = color_2, color_1
-            if line_counter in columns:
-                color_1 = GROUP_COLOR
-                color_2 = GROUP_COLOR
+            placed_color_1, placed_color_2 = placed_color_2, placed_color_1
+                       
+        current_square = math.floor(line_counter / 3) * 3 + math.floor(iterator / 3)
+
+        if active_block_formation.can_place and (line_counter in possible_rows or iterator in possible_columns or current_square in possible_squares):
+            color_1 = GROUP_COLOR
+            color_2 = GROUP_COLOR
+            placed_color_1 = GROUP_COLOR
+            placed_color_2 = GROUP_COLOR
 
         if iterator < 3 or iterator >= 6:
             if placed_blocks[BLOCK.x_position][BLOCK.y_position]:
-                pygame.draw.rect(SURFACE, PLACED_COLOR, BLOCK.rect)
+                pygame.draw.rect(SURFACE, placed_color_1, BLOCK.rect)
             else:
                 pygame.draw.rect(SURFACE, color_1, BLOCK.rect)
         else:
             if placed_blocks[BLOCK.x_position][BLOCK.y_position]:
-                pygame.draw.rect(SURFACE, PLACED_COLOR, BLOCK.rect)
+                pygame.draw.rect(SURFACE, placed_color_2, BLOCK.rect)
             else:
                 pygame.draw.rect(SURFACE, color_2, BLOCK.rect)
         
@@ -280,8 +360,25 @@ def main():
     game_running = True
 
     global active_block_formation
+    active_block_formation.move(0, 0)
 
     while game_running:
+        global wait_for_joystick_release
+
+        for joystick in joysticks.keys():
+            x_joystick_input = joysticks[joystick].get_axis(0)
+            y_joystick_input = joysticks[joystick].get_axis(1)
+            if abs(x_joystick_input) > 0.5 or abs(y_joystick_input) > 0.5:
+                if not wait_for_joystick_release: # Joystick move action
+                    active_block_formation.move(round(x_joystick_input), round(y_joystick_input))
+                    wait_for_joystick_release = True
+                    check_for_groups()
+                    update_possible_placed_blocks()
+                    check_for_possible_groups()
+            else:
+                if wait_for_joystick_release:
+                    wait_for_joystick_release = False
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 game_running = False
@@ -289,39 +386,33 @@ def main():
                 if event.button == 0:
                     if not active_block_formation.can_place:
                         continue
-
+                    global score
                     for block in active_block_formation.blocks:
+                        score += 1
                         placed_blocks[block.x_position + active_block_formation.x_current_tile][block.y_position + active_block_formation.y_current_tile] = True
                     active_block_formation = Block_Formation(0, 0, BLOCK_SHAPES[random.randint(0, len(BLOCK_SHAPES) - 1)])
+                    active_block_formation.move(0, 0)
 
                     check_for_groups()
                     clear_groups()
+                    update_possible_placed_blocks()
+                    check_for_possible_groups()
+                elif event.button == 1:
+                    active_block_formation = Block_Formation(0, 0, BLOCK_SHAPES[0])
+                    active_block_formation.move(0, 0)
 
+                    check_for_groups()
+                    clear_groups()
+                    update_possible_placed_blocks()
+                    check_for_possible_groups()
                 elif event.button == 6:
                     game_running = False
                 print(f"Button {event.button} pressed")
-            # elif event.type == pygame.JOYBUTTONUP:
-                # print(f"Button {event.button} released")
             elif event.type == pygame.JOYDEVICEADDED:
                 added_joystick = pygame.joystick.Joystick(event.device_index)
                 joysticks[added_joystick.get_instance_id()] = added_joystick
-                # print(f"Joystick {added_joystick.get_instance_id()} connected")
             elif event.type == pygame.JOYDEVICEREMOVED:
                 del joysticks[event.instance_id]
-                # print(f"Joystick {event.instance_id} disconnected")
-
-        global wait_for_joystick_release
-
-        x_joystick_input = joysticks[0].get_axis(0)
-        y_joystick_input = joysticks[0].get_axis(1)
-        if abs(x_joystick_input) > 0.5 or abs(y_joystick_input) > 0.5:
-            if not wait_for_joystick_release: # Joystick move action
-                active_block_formation.move(round(x_joystick_input), round(y_joystick_input))
-                wait_for_joystick_release = True
-                check_for_groups()
-        else:
-            if wait_for_joystick_release:
-                wait_for_joystick_release = False
             
         draw_all()
 
