@@ -1,6 +1,7 @@
 import pygame, random, math
 
 pygame.init()
+pygame.mixer.init()
 pygame.display.set_caption('Blocks')
 
 class Block:
@@ -35,9 +36,13 @@ class Block_Formation:
             
     def move(self, x_tiles, y_tiles):
         if self.x_current_tile + x_tiles < 0 or self.x_current_tile + x_tiles + self.width - 1 >= BOARD_WIDTH:
+            pygame.mixer.Sound.play(STUCK_SOUND)
             return
         if self.y_current_tile + y_tiles < 0 or self.y_current_tile + y_tiles + self.height - 1 >= BOARD_WIDTH:
+            pygame.mixer.Sound.play(STUCK_SOUND)
             return
+        
+        pygame.mixer.Sound.play(MOVE_SOUND)
         
         self.x_current_tile += x_tiles
         self.y_current_tile += y_tiles
@@ -142,8 +147,54 @@ BLOCK_SHAPES = [
         "--X",
         "-X-",
         "X--"
+    ],
+    [
+        "XX",
+        "X-",
+        "XX"
+    ],
+    [
+        "XX",
+        "-X",
+        "XX"
+    ],
+    [
+        "X-X",
+        "XXX"
+    ],
+    [
+        "XXX",
+        "X-X"
     ]
 ]
+
+class Available_Block_Formation:
+    def __init__(self, formation, x_current_tile, y_current_tile, id):
+        self.formation = formation
+        self.x_current_tile = x_current_tile
+        self.y_current_tile = y_current_tile
+        
+        self.id = id
+
+        self.width = len(self.formation[0])
+        self.height = len(self.formation)
+
+        self.blocks = []
+        line_counter = 0
+        for line in self.formation:
+            for i in range(self.width):
+                if line[i] == "X":
+                    self.blocks.append(Block(i, line_counter))    
+            line_counter += 1
+        
+    def draw(self):
+        for BLOCK in self.blocks:
+            color = WHITE
+            if current_block_formation == self.id:
+                color = 0, 170, 150
+            X_POSITION = GAME_VIEW_X + BLOCK_WIDTH * 0.5 * (BLOCK.x_position + self.x_current_tile) + BLOCK_PADDING * 0.5 * (BLOCK.x_position + self.x_current_tile + 1)
+            Y_POSITION = GAME_VIEW_Y + BLOCK_WIDTH * 0.5 * (BLOCK.y_position + self.y_current_tile) + BLOCK_PADDING * 0.5 * (BLOCK.y_position + self.y_current_tile + 1)
+            pygame.draw.rect(SURFACE, color, (X_POSITION - BLOCK_WIDTH * 0.5 * self.width * 0.5, Y_POSITION - BLOCK_WIDTH * 0.5 * self.width * 0.5, BLOCK_WIDTH * 0.5, BLOCK_WIDTH * 0.5))
 
 CLOCK = pygame.time.Clock()
 FRAME_RATE = 30
@@ -176,7 +227,7 @@ BG_BLOCK_BRIGHT = 150, 110, 60
 BG_BLOCK_DARK = 130, 80, 50
 BG_BLOCKS = []
 
-active_block_formation = Block_Formation(0, 0, BLOCK_SHAPES[random.randint(0, len(BLOCK_SHAPES) - 1)])
+active_block_formation = None
 available_block_formations = []
 current_block_formation = 0
 
@@ -200,6 +251,19 @@ possible_rows = []
 possible_squares = []
 
 score = 0
+SCORE_FONT = pygame.font.Font(None, 32)
+
+MOVE_SOUND = pygame.mixer.Sound("sounds/Menu_Click.wav")
+STUCK_SOUND = pygame.mixer.Sound("sounds/Menu_End.wav")
+
+GROUP_SOUNDS = [
+    pygame.mixer.Sound("sounds/Success_1.wav"),
+    pygame.mixer.Sound("sounds/Success_2.wav"),
+    pygame.mixer.Sound("sounds/Success_3.wav")
+]
+
+PLACE_SOUND = pygame.mixer.Sound("sounds/Place.wav")
+ERROR_SOUND = pygame.mixer.Sound("sounds/Error.wav")
 
 def update_possible_placed_blocks():
     for y in range(BOARD_WIDTH):
@@ -296,6 +360,11 @@ def clear_groups():
 
     number_of_matches = len(columns) + len(rows) + len(squares)
 
+    if number_of_matches > 0:
+        pygame.mixer.Sound.play(GROUP_SOUNDS[number_of_matches - 1])
+    else:
+        pygame.mixer.Sound.play(PLACE_SOUND)
+
     global score
     score += number_of_matches * 10 * number_of_matches
     print(score)
@@ -303,6 +372,14 @@ def clear_groups():
     columns = []
     rows = []
     squares = []
+
+def fill_available_formations():
+    global available_block_formations
+    available_block_formations = [
+        Available_Block_Formation(BLOCK_SHAPES[random.randint(0, len(BLOCK_SHAPES) - 1)], -4, 0, 0),
+        Available_Block_Formation(BLOCK_SHAPES[random.randint(0, len(BLOCK_SHAPES) - 1)], -4, 8, 1),
+        Available_Block_Formation(BLOCK_SHAPES[random.randint(0, len(BLOCK_SHAPES) - 1)], -4, 16, 2)
+    ]
 
 def draw_all():
     SURFACE.fill(BLACK)
@@ -349,7 +426,16 @@ def draw_all():
             iterator = 0
             line_counter += 1
     
-    active_block_formation.draw()
+    if active_block_formation != None:
+        active_block_formation.draw()
+    
+    for formation in available_block_formations:
+        formation.draw()
+    
+    score_text = SCORE_FONT.render(f"{score}", False, WHITE)
+    score_text_rect = score_text.get_rect(center = (SCREEN_WIDTH * 0.5, SCREEN_HEIGHT * 0.5 - BOARD_WIDTH * 0.5 * BLOCK_WIDTH - BLOCK_PADDING * BOARD_WIDTH))
+
+    SURFACE.blit(score_text, score_text_rect)
     
     pygame.display.update()
 
@@ -361,6 +447,10 @@ def main():
     global game_running
 
     global active_block_formation
+    global current_block_formation
+    
+    fill_available_formations()
+    active_block_formation = Block_Formation(0, 0, available_block_formations[0].formation)
     active_block_formation.move(0, 0)
 
     while game_running:
@@ -371,7 +461,8 @@ def main():
             y_joystick_input = joysticks[joystick].get_axis(1)
             if abs(x_joystick_input) > 0.5 or abs(y_joystick_input) > 0.5:
                 if not wait_for_joystick_release: # Joystick move action
-                    active_block_formation.move(round(x_joystick_input), round(y_joystick_input))
+                    if active_block_formation != None:
+                        active_block_formation.move(round(x_joystick_input), round(y_joystick_input))
                     wait_for_joystick_release = True
                     check_for_groups()
                     update_possible_placed_blocks()
@@ -386,12 +477,15 @@ def main():
             elif event.type == pygame.JOYBUTTONDOWN:
                 if event.button == 0:
                     if not active_block_formation.can_place:
+                        pygame.mixer.Sound.play(ERROR_SOUND)
                         continue
                     global score
                     for block in active_block_formation.blocks:
                         score += 1
                         placed_blocks[block.x_position + active_block_formation.x_current_tile][block.y_position + active_block_formation.y_current_tile] = True
-                    active_block_formation = Block_Formation(0, 0, BLOCK_SHAPES[random.randint(0, len(BLOCK_SHAPES) - 1)])
+                    available_block_formations[current_block_formation] = Available_Block_Formation(BLOCK_SHAPES[random.randint(0, len(BLOCK_SHAPES) - 1)], -4, 8 * current_block_formation, current_block_formation)
+
+                    active_block_formation = Block_Formation(0, 0, available_block_formations[current_block_formation].formation)
                     active_block_formation.move(0, 0)
 
                     check_for_groups()
@@ -399,7 +493,10 @@ def main():
                     update_possible_placed_blocks()
                     check_for_possible_groups()
                 elif event.button == 1:
-                    active_block_formation = Block_Formation(0, 0, BLOCK_SHAPES[0])
+                    current_block_formation += 1
+                    if current_block_formation >= len(available_block_formations):
+                        current_block_formation = 0
+                    active_block_formation = Block_Formation(0, 0, available_block_formations[current_block_formation].formation)
                     active_block_formation.move(0, 0)
 
                     check_for_groups()
