@@ -86,6 +86,15 @@ BLOCK_SHAPES = [
         "X",
         "X",
         "X",
+        "X"
+    ],
+    [
+        "XXXX"
+    ],
+    [
+        "X",
+        "X",
+        "X",
         "X",
         "X"
     ],
@@ -183,6 +192,87 @@ BLOCK_SHAPES = [
         "-X",
         "XX",
         "X-"
+    ],
+    [
+        "X-",
+        "X-",
+        "XX"
+    ],
+    [
+        "XX",
+        "X-",
+        "X-"
+    ],
+    [
+        "-X",
+        "-X",
+        "XX"
+    ],
+    [
+        "XX",
+        "-X",
+        "-X"
+    ],
+    [
+        "--X",
+        "XXX"
+    ],
+    [
+        "X--",
+        "XXX"
+    ],
+    [
+        "XXX",
+        "--X"
+    ],
+    [
+        "XXX",
+        "X--"
+    ]
+]
+
+HARD_BLOCK_SHAPES = [
+    [
+        "X-X",
+        "-X-",
+        "X-X"   
+    ],
+    [
+        "X-X",
+        "---",
+        "X-X"
+    ],
+    [
+        "-X-",
+        "X-X"
+    ],
+    [
+        "X-X",
+        "-X-"
+    ],
+    [
+        "X-",
+        "-X",
+        "X-"
+    ],
+    [
+        "-X",
+        "X-",
+        "-X"
+    ],
+    [
+        "-X",
+        "X-X",
+        "-X"
+    ],
+    [
+        "X-X",
+        "X-X"
+    ],
+    [
+        "XX",
+        "--",
+        "XX"
     ]
 ]
 
@@ -257,6 +347,8 @@ current_block_formation = 0
 placed_blocks = []
 possible_placed_blocks = []
 
+difficulty = 0
+
 for y in range(BOARD_WIDTH):
     placed_blocks.append([])
     possible_placed_blocks.append([])
@@ -274,7 +366,7 @@ possible_rows = []
 possible_squares = []
 
 score = 0
-SCORE_FONT = pygame.font.Font(None, 32)
+SCORE_FONT = pygame.font.Font(None, 64)
 
 MOVE_SOUND = pygame.mixer.Sound("sounds/Menu_Click.wav")
 STUCK_SOUND = pygame.mixer.Sound("sounds/Menu_End.wav")
@@ -282,7 +374,11 @@ STUCK_SOUND = pygame.mixer.Sound("sounds/Menu_End.wav")
 GROUP_SOUNDS = [
     pygame.mixer.Sound("sounds/Success_1.wav"),
     pygame.mixer.Sound("sounds/Success_2.wav"),
-    pygame.mixer.Sound("sounds/Success_3.wav")
+    pygame.mixer.Sound("sounds/Success_3.wav"),
+    pygame.mixer.Sound("sounds/Success_4.wav"),
+    pygame.mixer.Sound("sounds/Success_5.wav"),
+    pygame.mixer.Sound("sounds/Success_6.wav"),
+    pygame.mixer.Sound("sounds/Success_7.wav")
 ]
 
 PLACE_SOUND = pygame.mixer.Sound("sounds/Place.wav")
@@ -462,78 +558,159 @@ def draw_all():
 
 wait_for_joystick_release = False
 
+in_menu = True
 game_running = True
+
+def start_game():
+    global active_block_formation
+
+    fill_available_formations()
+    active_block_formation = Block_Formation(0, 0, available_block_formations[0].formation)
+    active_block_formation.move(0, 0)
+
+def handle_in_game_events():
+    global game_running
+
+    global active_block_formation
+    global current_block_formation
+
+    global wait_for_joystick_release
+
+    for joystick in joysticks.keys():
+        x_joystick_input = joysticks[joystick].get_axis(0)
+        y_joystick_input = joysticks[joystick].get_axis(1)
+        if abs(x_joystick_input) > 0.5 or abs(y_joystick_input) > 0.5:
+            if not wait_for_joystick_release: # Joystick move action
+                if active_block_formation != None:
+                    active_block_formation.move(round(x_joystick_input), round(y_joystick_input))
+                wait_for_joystick_release = True
+                check_for_groups()
+                update_possible_placed_blocks()
+                check_for_possible_groups()
+        else:
+            if wait_for_joystick_release:
+                wait_for_joystick_release = False
+    
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            game_running = False
+        elif event.type == pygame.JOYBUTTONDOWN:
+            if event.button == 0:
+                if not active_block_formation.can_place:
+                    pygame.mixer.Sound.play(ERROR_SOUND)
+                    continue
+                global score
+                for block in active_block_formation.blocks:
+                    score += 1
+                    placed_blocks[block.x_position + active_block_formation.x_current_tile][block.y_position + active_block_formation.y_current_tile] = True
+                available_block_formations[current_block_formation] = Available_Block_Formation(BLOCK_SHAPES[random.randint(0, len(BLOCK_SHAPES) - 1)], -4, 8 * current_block_formation, current_block_formation)
+
+                active_block_formation = Block_Formation(0, 0, available_block_formations[current_block_formation].formation)
+                active_block_formation.move(0, 0)
+
+                check_for_groups()
+                clear_groups()
+                update_possible_placed_blocks()
+                check_for_possible_groups()
+            elif event.button == 1:
+                current_block_formation += 1
+                if current_block_formation >= len(available_block_formations):
+                    current_block_formation = 0
+                active_block_formation = Block_Formation(0, 0, available_block_formations[current_block_formation].formation)
+                active_block_formation.move(0, 0)
+
+                check_for_groups()
+                clear_groups()
+                update_possible_placed_blocks()
+                check_for_possible_groups()
+            elif event.button == 8:
+                game_running = False
+            # print(f"Button {event.button} pressed")
+        elif event.type == pygame.JOYDEVICEADDED:
+            added_joystick = pygame.joystick.Joystick(event.device_index)
+            joysticks[added_joystick.get_instance_id()] = added_joystick
+        elif event.type == pygame.JOYDEVICEREMOVED:
+            del joysticks[event.instance_id]
+        
+    draw_all()
+
+def draw_menu():
+    SURFACE.fill(BLACK)
+    
+    pygame.draw.rect(SURFACE, GAME_VIEW_COLOR, GAME_VIEW_RECT)
+    
+    easy_color = WHITE
+    if difficulty == 0:
+        easy_color = ACTIVE_COLOR
+    easy_text = SCORE_FONT.render("Easy", False, easy_color)
+    easy_text_rect = easy_text.get_rect(center = (SCREEN_WIDTH * 0.5, SCREEN_HEIGHT * 0.5 - 30))
+    SURFACE.blit(easy_text, easy_text_rect)
+
+    hard_color = WHITE
+    if difficulty == 1:
+        hard_color = ACTIVE_COLOR
+    hard_text = SCORE_FONT.render("Hard", False, hard_color)
+    hard_text_rect = hard_text.get_rect(center = (SCREEN_WIDTH * 0.5, SCREEN_HEIGHT * 0.5 + 30))
+    SURFACE.blit(hard_text, hard_text_rect)
+    
+    pygame.display.update()
+
+def handle_menu_events():
+    global game_running
+    global in_menu
+
+    global wait_for_joystick_release
+
+    for joystick in joysticks.keys():
+        x_joystick_input = joysticks[joystick].get_axis(0)
+        y_joystick_input = joysticks[joystick].get_axis(1)
+        if abs(x_joystick_input) > 0.5 or abs(y_joystick_input) > 0.5:
+            if not wait_for_joystick_release: # Joystick move action
+                wait_for_joystick_release = True
+
+                global difficulty
+                difficulty += math.ceil(y_joystick_input)
+                if difficulty > 1:
+                    difficulty = 0
+                elif difficulty < 0:
+                    difficulty = 1
+        else:
+            if wait_for_joystick_release:
+                wait_for_joystick_release = False
+    
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            in_menu = False
+            game_running = False
+        elif event.type == pygame.JOYBUTTONDOWN:
+            if event.button == 0:
+                in_menu = False
+            elif event.button == 8:
+                in_menu = False
+                game_running = False
+        elif event.type == pygame.JOYDEVICEADDED:
+            added_joystick = pygame.joystick.Joystick(event.device_index)
+            joysticks[added_joystick.get_instance_id()] = added_joystick
+        elif event.type == pygame.JOYDEVICEREMOVED:
+            del joysticks[event.instance_id]
+        
+    draw_menu()
 
 def main():
     global game_running
 
     global active_block_formation
     global current_block_formation
-    
-    fill_available_formations()
-    active_block_formation = Block_Formation(0, 0, available_block_formations[0].formation)
-    active_block_formation.move(0, 0)
+
+    while in_menu:
+        handle_menu_events()
+
+        CLOCK.tick(FRAME_RATE)
+
+    start_game()
 
     while game_running:
-        global wait_for_joystick_release
-
-        for joystick in joysticks.keys():
-            x_joystick_input = joysticks[joystick].get_axis(0)
-            y_joystick_input = joysticks[joystick].get_axis(1)
-            if abs(x_joystick_input) > 0.5 or abs(y_joystick_input) > 0.5:
-                if not wait_for_joystick_release: # Joystick move action
-                    if active_block_formation != None:
-                        active_block_formation.move(round(x_joystick_input), round(y_joystick_input))
-                    wait_for_joystick_release = True
-                    check_for_groups()
-                    update_possible_placed_blocks()
-                    check_for_possible_groups()
-            else:
-                if wait_for_joystick_release:
-                    wait_for_joystick_release = False
-        
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                game_running = False
-            elif event.type == pygame.JOYBUTTONDOWN:
-                if event.button == 0:
-                    if not active_block_formation.can_place:
-                        pygame.mixer.Sound.play(ERROR_SOUND)
-                        continue
-                    global score
-                    for block in active_block_formation.blocks:
-                        score += 1
-                        placed_blocks[block.x_position + active_block_formation.x_current_tile][block.y_position + active_block_formation.y_current_tile] = True
-                    available_block_formations[current_block_formation] = Available_Block_Formation(BLOCK_SHAPES[random.randint(0, len(BLOCK_SHAPES) - 1)], -4, 8 * current_block_formation, current_block_formation)
-
-                    active_block_formation = Block_Formation(0, 0, available_block_formations[current_block_formation].formation)
-                    active_block_formation.move(0, 0)
-
-                    check_for_groups()
-                    clear_groups()
-                    update_possible_placed_blocks()
-                    check_for_possible_groups()
-                elif event.button == 1:
-                    current_block_formation += 1
-                    if current_block_formation >= len(available_block_formations):
-                        current_block_formation = 0
-                    active_block_formation = Block_Formation(0, 0, available_block_formations[current_block_formation].formation)
-                    active_block_formation.move(0, 0)
-
-                    check_for_groups()
-                    clear_groups()
-                    update_possible_placed_blocks()
-                    check_for_possible_groups()
-                elif event.button == 8:
-                    game_running = False
-                print(f"Button {event.button} pressed")
-            elif event.type == pygame.JOYDEVICEADDED:
-                added_joystick = pygame.joystick.Joystick(event.device_index)
-                joysticks[added_joystick.get_instance_id()] = added_joystick
-            elif event.type == pygame.JOYDEVICEREMOVED:
-                del joysticks[event.instance_id]
-            
-        draw_all()
+        handle_in_game_events()
 
         CLOCK.tick(FRAME_RATE)
 
