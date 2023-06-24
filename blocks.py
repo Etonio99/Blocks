@@ -165,6 +165,24 @@ BLOCK_SHAPES = [
     [
         "XXX",
         "X-X"
+    ],
+    [
+        "-XX",
+        "XX-"
+    ],
+    [
+        "XX-",
+        "-XX"
+    ],
+    [
+        "X-",
+        "XX",
+        "-X"
+    ],
+    [
+        "-X",
+        "XX",
+        "X-"
     ]
 ]
 
@@ -191,7 +209,7 @@ class Available_Block_Formation:
         for BLOCK in self.blocks:
             color = WHITE
             if current_block_formation == self.id:
-                color = 0, 170, 150
+                color = ACTIVE_COLOR
             X_POSITION = GAME_VIEW_X + BLOCK_WIDTH * 0.5 * (BLOCK.x_position + self.x_current_tile) + BLOCK_PADDING * 0.5 * (BLOCK.x_position + self.x_current_tile + 1)
             Y_POSITION = GAME_VIEW_Y + BLOCK_WIDTH * 0.5 * (BLOCK.y_position + self.y_current_tile) + BLOCK_PADDING * 0.5 * (BLOCK.y_position + self.y_current_tile + 1)
             pygame.draw.rect(SURFACE, color, (X_POSITION - BLOCK_WIDTH * 0.5 * self.width * 0.5, Y_POSITION - BLOCK_WIDTH * 0.5 * self.width * 0.5, BLOCK_WIDTH * 0.5, BLOCK_WIDTH * 0.5))
@@ -226,6 +244,11 @@ GAME_VIEW_RECT = pygame.rect.Rect(GAME_VIEW_X, GAME_VIEW_Y, GAME_VIEW_WIDTH, GAM
 BG_BLOCK_BRIGHT = 150, 110, 60
 BG_BLOCK_DARK = 130, 80, 50
 BG_BLOCKS = []
+
+FG_BLOCK_BRIGHT = 240, 200, 60
+FG_BLOCK_DARK = 240, 180, 60
+
+ACTIVE_COLOR = 0, 200, 180
 
 active_block_formation = None
 available_block_formations = []
@@ -393,10 +416,8 @@ def draw_all():
         color_1 = BG_BLOCK_BRIGHT
         color_2 = BG_BLOCK_DARK
         
-        placed_color_1 = 100, 50, 20
-        placed_color_2 = 80, 30, 0
-        
-        GROUP_COLOR = 0, 170, 150
+        placed_color_1 = FG_BLOCK_BRIGHT
+        placed_color_2 = FG_BLOCK_DARK
         
         if line_counter >= 3 and line_counter < 6:
             color_1, color_2 = color_2, color_1
@@ -405,10 +426,10 @@ def draw_all():
         current_square = math.floor(line_counter / 3) * 3 + math.floor(iterator / 3)
 
         if active_block_formation.can_place and (line_counter in possible_rows or iterator in possible_columns or current_square in possible_squares):
-            color_1 = GROUP_COLOR
-            color_2 = GROUP_COLOR
-            placed_color_1 = GROUP_COLOR
-            placed_color_2 = GROUP_COLOR
+            color_1 = ACTIVE_COLOR
+            color_2 = ACTIVE_COLOR
+            placed_color_1 = ACTIVE_COLOR
+            placed_color_2 = ACTIVE_COLOR
 
         if iterator < 3 or iterator >= 6:
             if placed_blocks[BLOCK.x_position][BLOCK.y_position]:
@@ -503,7 +524,7 @@ def main():
                     clear_groups()
                     update_possible_placed_blocks()
                     check_for_possible_groups()
-                elif event.button == 6:
+                elif event.button == 8:
                     game_running = False
                 print(f"Button {event.button} pressed")
             elif event.type == pygame.JOYDEVICEADDED:
