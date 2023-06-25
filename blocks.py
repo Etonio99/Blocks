@@ -273,6 +273,22 @@ HARD_BLOCK_SHAPES = [
         "XX",
         "--",
         "XX"
+    ],
+    [
+        "--X",
+        "XX-"
+    ],
+    [
+        "X--",
+        "-XX"
+    ],
+    [
+        "XX-",
+        "--X"
+    ],
+    [
+        "-XX",
+        "X--"
     ]
 ]
 
@@ -287,6 +303,8 @@ class Available_Block_Formation:
         self.width = len(self.formation[0])
         self.height = len(self.formation)
 
+        self.can_fit = False
+
         self.blocks = []
         line_counter = 0
         for line in self.formation:
@@ -299,7 +317,12 @@ class Available_Block_Formation:
         for BLOCK in self.blocks:
             color = WHITE
             if current_block_formation == self.id:
-                color = ACTIVE_COLOR
+                if not self.can_fit:
+                    color = ACTIVE_NO_FIT_COLOR
+                else:
+                    color = ACTIVE_COLOR
+            elif not self.can_fit:
+                color = NO_FIT_COLOR
             X_POSITION = GAME_VIEW_X + BLOCK_WIDTH * 0.5 * (BLOCK.x_position + self.x_current_tile) + BLOCK_PADDING * 0.5 * (BLOCK.x_position + self.x_current_tile + 1)
             Y_POSITION = GAME_VIEW_Y + BLOCK_WIDTH * 0.5 * (BLOCK.y_position + self.y_current_tile) + BLOCK_PADDING * 0.5 * (BLOCK.y_position + self.y_current_tile + 1)
             pygame.draw.rect(SURFACE, color, (X_POSITION - BLOCK_WIDTH * 0.5 * self.width * 0.5, Y_POSITION - BLOCK_WIDTH * 0.5 * self.width * 0.5, BLOCK_WIDTH * 0.5, BLOCK_WIDTH * 0.5))
@@ -339,6 +362,8 @@ FG_BLOCK_BRIGHT = 240, 200, 60
 FG_BLOCK_DARK = 240, 180, 60
 
 ACTIVE_COLOR = 0, 200, 180
+ACTIVE_NO_FIT_COLOR = 0, 148, 128
+NO_FIT_COLOR = 128, 128, 128
 
 active_block_formation = None
 available_block_formations = []
@@ -486,7 +511,7 @@ def clear_groups():
 
     global score
     score += number_of_matches * 10 * number_of_matches
-    print(score)
+    # print(score)
 
     columns = []
     rows = []
@@ -509,6 +534,27 @@ def fill_available_formations():
         Available_Block_Formation(get_random_formation(), -4, 8, 1),
         Available_Block_Formation(get_random_formation(), -4, 16, 2)
     ]
+    check_available_formations_for_fit()
+
+def check_available_formations_for_fit():
+    for formation in available_block_formations:
+        formation.can_fit = False
+        for y in range(BOARD_WIDTH):
+            if formation.can_fit:
+                continue
+            for x in range(BOARD_WIDTH):
+                if formation.can_fit:
+                    continue
+                blocks_that_fit = 0
+                for BLOCK in formation.blocks:
+                    if x + BLOCK.x_position >= BOARD_WIDTH or y + BLOCK.y_position >= BOARD_WIDTH:
+                        continue
+                    if not placed_blocks[x + BLOCK.x_position][y + BLOCK.y_position]:
+                        blocks_that_fit += 1
+                    else:
+                        continue
+                if blocks_that_fit == len(formation.blocks):
+                    formation.can_fit = True
 
 def draw_all():
     SURFACE.fill(BLACK)
@@ -622,6 +668,7 @@ def handle_in_game_events():
                 clear_groups()
                 update_possible_placed_blocks()
                 check_for_possible_groups()
+                check_available_formations_for_fit()
             elif event.button == 1:
                 current_block_formation += 1
                 if current_block_formation >= len(available_block_formations):
