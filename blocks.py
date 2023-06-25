@@ -372,6 +372,16 @@ class Available_Block_Formation:
             Y_POSITION = GAME_VIEW_Y + BLOCK_WIDTH * 0.5 * (BLOCK.y_position + self.y_current_tile) + BLOCK_PADDING * 0.5 * (BLOCK.y_position + self.y_current_tile + 1)
             pygame.draw.rect(SURFACE, color, (X_POSITION - BLOCK_WIDTH * 0.5 * self.width * 0.5, Y_POSITION - BLOCK_WIDTH * 0.5 * self.width * 0.5, BLOCK_WIDTH * 0.5, BLOCK_WIDTH * 0.5))
 
+class Game_Over_Splash:
+    def __init__(self):
+        self.rect = pygame.rect.Rect(SCREEN_WIDTH / 2 - 175, SCREEN_HEIGHT / 2 - 50, 350, 100)
+        self.text = SCORE_FONT.render("GAME OVER", False, WHITE)
+        self.text_rect = self.text.get_rect(center = (SCREEN_WIDTH * 0.5, SCREEN_HEIGHT * 0.5))
+
+    def draw(self):
+        pygame.draw.rect(SURFACE, BLACK, self.rect)
+        SURFACE.blit(self.text, self.text_rect)
+
 CLOCK = pygame.time.Clock()
 FRAME_RATE = 30
 SCREEN_WIDTH, SCREEN_HEIGHT = (1920, 1080)
@@ -417,6 +427,14 @@ current_block_formation = 0
 placed_blocks = []
 possible_placed_blocks = []
 
+score = 0
+SCORE_FONT = pygame.font.Font(None, 64)
+
+game_over = False
+game_over_splash = Game_Over_Splash()
+FRAMES_UNTIL_GAME_RESTART = 120
+game_restart_timer = 0
+
 difficulty = 0
 
 for y in range(BOARD_WIDTH):
@@ -434,9 +452,6 @@ squares = []
 possible_columns = []
 possible_rows = []
 possible_squares = []
-
-score = 0
-SCORE_FONT = pygame.font.Font(None, 64)
 
 MOVE_SOUND = pygame.mixer.Sound("sounds/Menu_Click.wav")
 STUCK_SOUND = pygame.mixer.Sound("sounds/Menu_End.wav")
@@ -618,6 +633,8 @@ def check_if_game_over():
         if FORMATION.can_fit:
             return
     
+    global game_over
+    game_over = True
     check_high_scores()
     save_high_scores()
 
@@ -706,6 +723,9 @@ def draw_all():
 
     SURFACE.blit(score_text, score_text_rect)
     
+    if game_over:
+        game_over_splash.draw()
+
     pygame.display.update()
 
 wait_for_joystick_release = False
@@ -715,10 +735,21 @@ in_game = False
 game_running = True
 
 def start_game():
+    global game_over
+    game_over = False
+
     global in_game
     in_game = True
 
+    global score
+    score = 0
+
     global active_block_formation
+
+    for y in range(BOARD_WIDTH):
+        for x in range(BOARD_WIDTH):
+            placed_blocks[x][y] = False
+            possible_placed_blocks[x][y] = False
 
     fill_available_formations()
     active_block_formation = Block_Formation(0, 0, available_block_formations[0].formation)
@@ -858,10 +889,14 @@ def handle_menu_events():
 
 def main():
     global game_running
+    global in_game
     global in_menu
 
     global active_block_formation
     global current_block_formation
+
+    global game_over
+    global game_restart_timer
 
     while game_running:
 
@@ -877,6 +912,13 @@ def main():
 
         while in_game:
             handle_in_game_events()
+
+            if game_over:
+                game_restart_timer += 1
+                if game_restart_timer >= FRAMES_UNTIL_GAME_RESTART:
+                    game_restart_timer = 0
+                    game_over = False
+                    in_game = False
 
             CLOCK.tick(FRAME_RATE)
 
