@@ -1,4 +1,4 @@
-import pygame, random, math
+import pygame, random, math, os
 
 pygame.init()
 pygame.mixer.init()
@@ -228,6 +228,46 @@ BLOCK_SHAPES = [
     [
         "XXX",
         "X--"
+    ],
+    [
+        "XXX",
+        "X--",
+        "X--"
+    ],
+    [
+        "XXX",
+        "--X",
+        "--X"
+    ],
+    [
+        "--X",
+        "--X",
+        "XXX"
+    ],
+    [
+        "X--",
+        "X--",
+        "XXX"
+    ],
+    [
+        "XXX",
+        "-X-",
+        "-X-"
+    ],
+    [
+        "--X",
+        "XXX",
+        "--X"
+    ],
+    [
+        "-X-",
+        "-X-",
+        "XXX"
+    ],
+    [
+        "X--",
+        "XXX",
+        "X--"
     ]
 ]
 
@@ -289,6 +329,11 @@ HARD_BLOCK_SHAPES = [
     [
         "-XX",
         "X--"
+    ],
+    [
+        "XXX",
+        "XXX",
+        "XXX"
     ]
 ]
 
@@ -409,6 +454,47 @@ GROUP_SOUNDS = [
 PLACE_SOUND = pygame.mixer.Sound("sounds/Place.wav")
 ERROR_SOUND = pygame.mixer.Sound("sounds/Error.wav")
 
+high_scores = []
+
+def load_high_scores():
+    global high_scores
+    if os.path.isfile(f"high_scores_{difficulty}.txt"):
+        with open(f"high_scores_{difficulty}.txt", "r") as file:
+            contents = file.read()
+            for line in contents.split("\n"):
+                high_scores.append(int(line))
+        high_scores.sort()
+    else:
+        high_scores.append(0)
+        high_scores.append(1)
+        high_scores.append(2)
+        high_scores.append(3)
+        high_scores.append(4)
+        high_scores.sort()
+        with open("high_scores.txt", "w") as file:
+            file.write(str(high_scores[4]) + "\n")
+            file.write(str(high_scores[3]) + "\n")
+            file.write(str(high_scores[2]) + "\n")
+            file.write(str(high_scores[1]) + "\n")
+            file.write(str(high_scores[0]))
+
+def check_high_scores():
+    global high_scores
+
+    high_scores.append(score)
+    high_scores.sort()
+    del high_scores[0]
+
+def save_high_scores():
+    global high_scores
+    high_scores.sort()
+    with open(f"high_scores_{difficulty}.txt", "w") as file:
+        file.write(str(high_scores[4]) + "\n")
+        file.write(str(high_scores[3]) + "\n")
+        file.write(str(high_scores[2]) + "\n")
+        file.write(str(high_scores[1]) + "\n")
+        file.write(str(high_scores[0]))
+
 def update_possible_placed_blocks():
     for y in range(BOARD_WIDTH):
         for x in range(BOARD_WIDTH):
@@ -527,6 +613,14 @@ def get_random_formation():
     formation = BLOCK_SHAPES[random.randint(0, len(BLOCK_SHAPES) - 1)]
     return formation
 
+def check_if_game_over():
+    for FORMATION in available_block_formations:
+        if FORMATION.can_fit:
+            return
+    
+    check_high_scores()
+    save_high_scores()
+
 def fill_available_formations():
     global available_block_formations
     available_block_formations = [
@@ -555,6 +649,8 @@ def check_available_formations_for_fit():
                         continue
                 if blocks_that_fit == len(formation.blocks):
                     formation.can_fit = True
+
+    check_if_game_over()
 
 def draw_all():
     SURFACE.fill(BLACK)
@@ -615,9 +711,13 @@ def draw_all():
 wait_for_joystick_release = False
 
 in_menu = True
+in_game = False
 game_running = True
 
 def start_game():
+    global in_game
+    in_game = True
+
     global active_block_formation
 
     fill_available_formations()
@@ -626,6 +726,7 @@ def start_game():
 
 def handle_in_game_events():
     global game_running
+    global in_game
 
     global active_block_formation
     global current_block_formation
@@ -649,6 +750,7 @@ def handle_in_game_events():
     
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
+            in_game = False
             game_running = False
         elif event.type == pygame.JOYBUTTONDOWN:
             if event.button == 0:
@@ -681,6 +783,7 @@ def handle_in_game_events():
                 update_possible_placed_blocks()
                 check_for_possible_groups()
             elif event.button == 8:
+                in_game = False
                 game_running = False
             # print(f"Button {event.button} pressed")
         elif event.type == pygame.JOYDEVICEADDED:
@@ -755,21 +858,27 @@ def handle_menu_events():
 
 def main():
     global game_running
+    global in_menu
 
     global active_block_formation
     global current_block_formation
 
-    while in_menu:
-        handle_menu_events()
-
-        CLOCK.tick(FRAME_RATE)
-
-    start_game()
-
     while game_running:
-        handle_in_game_events()
 
-        CLOCK.tick(FRAME_RATE)
+        in_menu = True
+
+        while in_menu:
+            handle_menu_events()
+
+            CLOCK.tick(FRAME_RATE)
+
+        load_high_scores()
+        start_game()
+
+        while in_game:
+            handle_in_game_events()
+
+            CLOCK.tick(FRAME_RATE)
 
 if __name__ == "__main__":
     main()
