@@ -492,12 +492,22 @@ def clear_groups():
     rows = []
     squares = []
 
+def get_random_formation():
+    formation = "X"
+    if difficulty == 1:
+        chance = random.randint(0, 10)
+        if chance >= 7:
+            formation = HARD_BLOCK_SHAPES[random.randint(0, len(HARD_BLOCK_SHAPES) - 1)]
+            return formation
+    formation = BLOCK_SHAPES[random.randint(0, len(BLOCK_SHAPES) - 1)]
+    return formation
+
 def fill_available_formations():
     global available_block_formations
     available_block_formations = [
-        Available_Block_Formation(BLOCK_SHAPES[random.randint(0, len(BLOCK_SHAPES) - 1)], -4, 0, 0),
-        Available_Block_Formation(BLOCK_SHAPES[random.randint(0, len(BLOCK_SHAPES) - 1)], -4, 8, 1),
-        Available_Block_Formation(BLOCK_SHAPES[random.randint(0, len(BLOCK_SHAPES) - 1)], -4, 16, 2)
+        Available_Block_Formation(get_random_formation(), -4, 0, 0),
+        Available_Block_Formation(get_random_formation(), -4, 8, 1),
+        Available_Block_Formation(get_random_formation(), -4, 16, 2)
     ]
 
 def draw_all():
@@ -603,7 +613,7 @@ def handle_in_game_events():
                 for block in active_block_formation.blocks:
                     score += 1
                     placed_blocks[block.x_position + active_block_formation.x_current_tile][block.y_position + active_block_formation.y_current_tile] = True
-                available_block_formations[current_block_formation] = Available_Block_Formation(BLOCK_SHAPES[random.randint(0, len(BLOCK_SHAPES) - 1)], -4, 8 * current_block_formation, current_block_formation)
+                available_block_formations[current_block_formation] = Available_Block_Formation(get_random_formation(), -4, 8 * current_block_formation, current_block_formation)
 
                 active_block_formation = Block_Formation(0, 0, available_block_formations[current_block_formation].formation)
                 active_block_formation.move(0, 0)
