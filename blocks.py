@@ -430,9 +430,11 @@ possible_placed_blocks = []
 score = 0
 SCORE_FONT = pygame.font.Font(None, 64)
 
+LEADERBOARD_FONT = pygame.font.Font(None, 48)
+
 game_over = False
 game_over_splash = Game_Over_Splash()
-FRAMES_UNTIL_GAME_RESTART = 120
+FRAMES_UNTIL_GAME_RESTART = 150
 game_restart_timer = 0
 
 difficulty = 0
@@ -669,6 +671,18 @@ def check_available_formations_for_fit():
 
     check_if_game_over()
 
+def draw_leaderboard():
+    for i in range(len(high_scores) + 1):
+        if i == 0:
+            leaderboard_score_text = LEADERBOARD_FONT.render("HIGH SCORES", False, WHITE)
+        else:
+            print(high_scores[i - 1])
+            leaderboard_score_text = LEADERBOARD_FONT.render(f"{high_scores[len(high_scores) - i]}", False, WHITE)
+            
+        leaderboard_score_text_rect = leaderboard_score_text.get_rect(center = (SCREEN_WIDTH * 0.5 + BOARD_WIDTH * 0.5 * BLOCK_WIDTH + 250, SCREEN_HEIGHT * 0.5 - BOARD_WIDTH * 0.5 * BLOCK_WIDTH - BLOCK_PADDING * BOARD_WIDTH + 150 + 50 * i))
+
+        SURFACE.blit(leaderboard_score_text, leaderboard_score_text_rect)
+
 def draw_all():
     SURFACE.fill(BLACK)
     
@@ -722,7 +736,9 @@ def draw_all():
     score_text_rect = score_text.get_rect(center = (SCREEN_WIDTH * 0.5, SCREEN_HEIGHT * 0.5 - BOARD_WIDTH * 0.5 * BLOCK_WIDTH - BLOCK_PADDING * BOARD_WIDTH))
 
     SURFACE.blit(score_text, score_text_rect)
-    
+
+    draw_leaderboard()
+
     if game_over:
         game_over_splash.draw()
 
